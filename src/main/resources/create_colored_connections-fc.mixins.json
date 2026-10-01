@@ -1,0 +1,20 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "com.rlosking.createcc.mixin.factorycontroller",
+  "plugin": "com.rlosking.createcc.mixin.factorycontroller.FCCompatMixinPlugin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "create_colored_connections.refmap.json",
+  "mixins": [
+    "ConnectionMixin",
+    "LogisticsConnectionMixin"
+  ],
+  "client": [
+    "SchematicImportMixin",
+    "client.ConnectionWidgetMixin",
+    "client.FactoryControllerScreenMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

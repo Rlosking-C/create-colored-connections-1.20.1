@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.rlosking.createcc.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "create_colored_connections.refmap.json",
+  "mixins": [
+    "FactoryPanelBehaviourMixin"
+  ],
+  "client": [
+    "client.FactoryPanelRendererMixin",
+    "client.GoggleOverlayRendererMixin",
+    "client.ValueSettingsClientMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

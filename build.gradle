@@ -1,0 +1,237 @@
+// Create: Colored Connections - Forge 1.20.1 port of the NeoForge 1.21.1 original.
+//
+// Skeleton stage. This build script currently compiles a *dependency-free* mod
+// (Forge + MixinExtras only) so the build-time concerns (ForgeGradle, MixinGradle,
+// the MixinExtras JiJ, mixin config wiring, mods.toml) can be proven in isolation
+// from the Create-facing code. See docs/port-to-1.20.1-forge.md section 8.4 for
+// the intended step order.
+//
+// Modeled on the proven sibling port at
+//   Kaleidoscope Flora Forge 1.20.1/Kaleidoscope Flora Forge 1.20.1/build.gradle
+// which was verified end-to-end on 2026-09-26 (server reached "Done", all mixins applied).
+//
+// Resource filtering is deliberately NOT used: mods.toml reads its version from the
+// jar manifest via ${file.jarVersion}, keeping gradle.properties the single source of
+// truth without processResources expansion (which IntelliJ IDEA cannot replicate).
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'org.spongepowered.mixin' version '0.7.38'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = mod_id
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+    copyIdeResources = true
+
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+
+            // ------------------------------------------------------------------
+            // Mixin refmap remapping - REQUIRED for any addon that depends on Create.
+            //
+            // Create ships its own mixins written against SRG names ("m_21211_"),
+            // while the dev environment's Minecraft classes are in official
+            // (Mojang) mappings. Without this, Create's own mixins fail to apply at
+            // startup with:
+            //
+            //   Mixin apply failed create.mixins.json:CustomItemUseEffectsMixin
+            //   InvalidMixinException @Shadow method m_21211_ ... was not located
+            //   in the target class net.minecraft.world.entity.LivingEntity
+            //
+            // This is documented as a required step by Create itself:
+            // https://wiki.createmod.net/developers/depend-on-create/forge-1.20.1
+            //   ("Mixin Refmap Remapping [FG] ... it is necessary to remap Create's
+            //     mixin refmap")
+            // The exact string form below is the one the wiki prescribes.
+            //
+            // Note the value must be a concrete String - RunConfig.property(...)
+            // rejects both Provider and Closure here.
+            // ------------------------------------------------------------------
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+        client {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+        server {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
+        }
+    }
+}
+
+// Make sure the SRG file the runs point mixin.env.refMapRemappingFile at has been
+// generated before a run starts.
+tasks.matching { it.name in ['runClient', 'runServer', 'runData', 'runGameTestServer'] }.configureEach {
+    dependsOn 'createSrgToMcp'
+}
+
+// Wires the annotation processor's refmap into dev runs and the built jar, and adds
+// the MixinConfigs manifest attribute. BOTH configs must be listed: the optional
+// Factory Controller one carries its own IMixinConfigPlugin gate
+// (FCCompatMixinPlugin), which is what keeps it inert when FC is absent or older
+// than 1.2.1.
+mixin {
+    add sourceSets.main, "${mod_id}.refmap.json"
+    config "${mod_id}.mixins.json"
+    config "${mod_id}-fc.mixins.json"
+}
+
+repositories {
+    // Create, Ponder, Flywheel.
+    maven {
+        name = 'CreateMod'
+        url = 'https://maven.createmod.net'
+    }
+    // Registrate. NOTE: /mirror, not /snapshots - the Create wiki gives this exact
+    // URL, and /snapshots does not resolve (DNS failure on this machine).
+    maven {
+        name = 'IThundxr'
+        url = 'https://maven.ithundxr.dev/mirror'
+    }
+    // Ponder's transitive: ForgeConfigAPIPort.
+    maven {
+        name = 'Fuzs'
+        url = 'https://raw.githubusercontent.com/Fuzss/modresources/main/maven/'
+    }
+    // Modrinth Maven: hosts the optional Factory Controller jar.
+    // NOTE: this block was accidentally dropped when the Registrate repository
+    // was corrected to /mirror, which made every maven.modrinth:* coordinate
+    // unresolvable ("Could not find ...") even though the POM served fine over
+    // plain HTTP. If maven.modrinth dependencies stop resolving again, check
+    // that this repository is still declared.
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content { includeGroup 'maven.modrinth' }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    // MixinExtras: provides the @WrapOperation injector. Forge 47.3.x does NOT bundle
+    // a runtime copy that survives into a player installation, so this mod jar is
+    // JiJ'd into ours - Forge takes it out of META-INF/jars at load time and puts it
+    // on the classpath before our mixins are applied. Three files of the 1.21.1 source
+    // use MixinExtras, so this is required, not optional.
+    //
+    // Two different artifacts, deliberately: "common" is the library plus the
+    // annotation processor and is compile-only; "forge" is the platform jar carrying
+    // the Forge bootstrap (its own mods.toml, the MixinExtrasConfigPlugin and the
+    // nested library). Bundling only "common" compiles happily and then dies at
+    // runtime with "missing MixinExtras".
+    //
+    // jarJar.ranged is not optional either: ForgeGradle validates the version written
+    // into META-INF/jarjar/metadata.json as a Maven version RANGE and fails the build
+    // on a bare "0.4.1".
+    compileOnly(annotationProcessor("io.github.llamalad7:mixinextras-common:${mixinextras_version}"))
+    implementation(jarJar("io.github.llamalad7:mixinextras-forge:${mixinextras_version}")) {
+        jarJar.ranged(it, "[${mixinextras_version},)")
+    }
+
+    // ------------------------------------------------------------------
+    // Create and the libraries it re-exports.
+    //
+    // This block follows Create's own wiki verbatim in shape
+    // (https://wiki.createmod.net/developers/depend-on-create/forge-1.20.1):
+    //   - the "slim" classifier, because Create publishes no plain artifact;
+    //   - fg.deobf(...) on every mod jar, which remaps its SRG names onto the
+    //     official mappings the dev environment runs with. Omitting it makes
+    //     Create's own mixins fail to apply (see the refmap note in `runs`);
+    //   - transitive = false on Create, because its published metadata declares
+    //     dev-only integration libraries (JEI, FTB, JourneyMap, Curios,
+    //     CC:Tweaked, Architectury, Vanillin, ...) that are not shipped in the
+    //     released jar and are not used by this addon.
+    //
+    // Coordinates are cross-checked against Create's own
+    // META-INF/jarjar/metadata.json (docs/port-to-1.20.1-forge.md section 2.4).
+    // ------------------------------------------------------------------
+    implementation(fg.deobf("com.simibubi.create:create-${minecraft_version}:${create_version}:slim") {
+        transitive = false
+    })
+    implementation fg.deobf("net.createmod.ponder:Ponder-Forge-${minecraft_version}:${ponder_version}")
+
+    // Flywheel is split: the API jar is compile-only, the full jar supplies the
+    // implementation at dev-run time.
+    compileOnly fg.deobf("dev.engine-room.flywheel:flywheel-forge-api-${minecraft_version}:${flywheel_version}")
+    runtimeOnly fg.deobf("dev.engine-room.flywheel:flywheel-forge-${minecraft_version}:${flywheel_version}")
+
+    // Registrate. Now resolvable: the Create wiki's /mirror repository works,
+    // unlike /snapshots which fails DNS here.
+    implementation fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")
+
+    // Create: Factory Controller - OPTIONAL integration, never a prerequisite.
+    // compileOnly on purpose: the plain client and server runs must behave exactly
+    // like a player who does not have it installed, which is the case
+    // FCCompatMixinPlugin's gate exists for. To test the integration itself, drop
+    // a jar into run/mods/ as well; a jar in that folder is always discovered -
+    // but note that the PUBLISHED jar is reobfuscated to SRG names, so in a dev
+    // run it must be the deobfuscated artifact fg.deobf produces, not the raw
+    // download (the raw one dies with NoSuchFieldError: f_279569_ because the
+    // dev environment's classes carry official names; see docs section 8.14).
+    // Version: keep in sync with FCCompatMixinPlugin.FC_MIN_VERSION and
+    // FactoryControllerCompat.FC_MIN_VERSION - the mods.toml optional dependency
+    // declares the same "[1.2.1,)" lower bound.
+    compileOnly fg.deobf("maven.modrinth:create-factory-controller:${fc_version}")
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+// Expand version placeholders in the mod metadata from gradle.properties, so a
+// release only needs bumping mod_version in one place - and so the mod list shows
+// a real version in a Gradle dev run too (see the note in mods.toml: the sibling
+// Flora port's ${file.jarVersion} approach only resolves from the jar manifest,
+// which is why it shows 0.0NONE in dev).
+tasks.named('processResources', ProcessResources).configure {
+    var replaceProperties = [
+            minecraft_version: minecraft_version,
+            forge_version    : forge_version,
+            mod_version      : mod_version,
+    ]
+    inputs.properties replaceProperties
+    filesMatching('META-INF/mods.toml') {
+        expand replaceProperties
+    }
+}
+
+// The mod version is stamped into the jar manifest; mods.toml reads it back at
+// runtime through its ${file.jarVersion} placeholder (see the header comment).
+jar {
+    manifest {
+        attributes([
+                'Specification-Title'     : mod_id,
+                'Specification-Vendor'    : mod_authors,
+                'Specification-Version'   : '1',
+                'Implementation-Title'    : mod_name,
+                'Implementation-Version'  : project.version,
+                'Implementation-Vendor'   : mod_authors,
+        ])
+    }
+}
