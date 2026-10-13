@@ -1,21 +1,15 @@
 modLoader = "javafml"
-# Forge 1.20.1 is FML 47.x; the range only bounds the major version
+
 loaderVersion = "[47,)"
 license = "MIT"
 
 [[mods]]
 modId = "create_colored_connections"
-# Expanded from gradle.properties by the processResources task (see build.gradle).
-# Deliberately NOT the jar-manifest placeholder: that only resolves from the built
-# jar manifest, so a Gradle dev run shows "0.0NONE" in the mod list. Resource
-# filtering works in both the dev run and the built jar, and matches how the
-# 1.21.1 build declares it.
-# NB: Groovy's expand() also rewrites COMMENTS, so this file must not mention any
-# dollar-brace placeholder other than the three keys build.gradle supplies.
+
 version = "${mod_version}"
 displayName = "Create: Colored Connections"
 authors = "Rlosking-C"
-# Shown in the in-game mod list
+
 logoFile = "icon.png"
 description = '''
 Colorize Factory Gauge recipe links with the 16 vanilla dyes, so heavily
@@ -43,21 +37,6 @@ newer, because on Create 6.0.0 - 6.0.2 its own mixins fail to load.
     ordering = "NONE"
     side = "BOTH"
 
-# Create 1.20.1 ships the 6.0.0 - 6.0.8 line; 6.0.9 / 6.0.10 are 1.21.1-only builds,
-# so the upper bound must stay below 6.0.9.
-#
-# The lower bound is 6.0.0, which is what THIS MOD's own code needs: the whole source
-# compiles clean against a 6.0.0 jar, so every Create API used here exists from the
-# start of the line. Fraction of 1.20.1 packs still on 6.0.0 - 6.0.2 is small but real,
-# and nothing in this mod should lock them out.
-#
-# The OPTIONAL Factory Controller integration has a higher floor - Create 6.0.3 - and
-# that floor is deliberately NOT encoded in the range below. See the note on the
-# createfactorycontroller dependency at the bottom of this file for why, and for where
-# the requirement IS stated instead (the mod description, which is what players read).
-#
-# NB: Forge compares against the version Create declares in its own mods.toml
-# ("6.0.8-291"); "1.20.1-6.0.8" is only Modrinth's display name.
 [[dependencies.create_colored_connections]]
     modId = "create"
     mandatory = true
@@ -65,24 +44,6 @@ newer, because on Create 6.0.0 - 6.0.2 its own mixins fail to load.
     ordering = "AFTER"
     side = "BOTH"
 
-# Optional Factory Controller integration: its virtual connection wires become
-# dyeable inside the controller GUI. Never a prerequisite - the mod is
-# compileOnly in build.gradle, so a player without it gets exactly the plain
-# 1.20.1 experience. Gated at runtime by FCCompatMixinPlugin, which disables
-# the whole FC mixin config when FC is absent or older than 1.2.1, and by
-# FactoryControllerCompat.isLoaded() on the packet path.
-#
-# FC 1.2.1 does not actually run on Create 6.0.0 - 6.0.2, although it declares
-# versionRange="[6.0,)" for Create. FC (and the Create: Logistics Control jar it
-# bundles) applies mixins to StockTickerBlockEntity methods whose signatures use
-# PackageOrderWithCrafts, a class Create only added in 6.0.3; below that they die
-# with NoClassDefFoundError / ClassMetadataNotFoundException during mod loading.
-#
-# That is an upstream FC bug and it is NOT expressible here: a mods.toml version
-# range cannot say "only when this other optional mod is also present". Encoding it
-# in the Create range above would lock out players on 6.0.0 - 6.0.2 who never
-# install FC, so the requirement is stated in the mod description instead - the one
-# place a player actually reads - and in docs/port-to-1.20.1-forge.md section 8.19.
 [[dependencies.create_colored_connections]]
     modId = "createfactorycontroller"
     mandatory = false

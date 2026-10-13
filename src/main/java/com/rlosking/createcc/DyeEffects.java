@@ -20,40 +20,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
-/**
- * Success feedback for dyeing actions: one sound cue plus dye-colored dust
- * particles trailing along the dyed link itself (or the whole dyed path).
- *
- * <p>The sound is the exact cue Create itself plays when two gauges are
- * successfully linked - vanilla {@code AMETHYST_BLOCK_PLACE} on the BLOCKS
- * source at half volume - so dyeing feedback lives in the same sound family
- * as the player's other gauge interactions instead of inventing a new one.</p>
- *
- * <p>The particles follow the actual polyline of the link, not just its two
- * ends: the trail reuses the path-space coordinate frame of
- * {@link ConnectionHitTester} (same rotation chain the renderer builds),
- * walks the connection's segment list, and transforms each segment midpoint
- * back into world coordinates. A link that bends around a corner gets its
- * particles on the bend, where the line actually is.</p>
- *
- * <p><b>1.20.1 port note:</b> {@code DyeColor} has no scalar
- * {@code getTextureDiffuseColor()} here - that arrived in 1.21. 1.20.1 exposes
- * {@code getTextureDiffuseColors()} returning a {@code float[3]}, which is what
- * {@link #dustOptions} packs into an RGB int. See the port notes section 4.1.</p>
- */
 public final class DyeEffects {
 
 	private DyeEffects() {}
 
-	/**
-	 * Plays the feedback for one dyeing action.
-	 *
-	 * @param level the server level the action happened in
-	 * @param from  one end of the action (single link source / path start)
-	 * @param to    the other end (link target / path end)
-	 * @param dye   the applied dye; null when the color was cleared
-	 *              (black dye) - neutral gray dust is used then
-	 */
 	public static void play(ServerLevel level, FactoryPanelPosition from, FactoryPanelPosition to, DyeColor dye) {
 		if (!effectsEnabled())
 			return;
@@ -61,12 +31,6 @@ public final class DyeEffects {
 		trail(level, from, to, dustOptions(dye));
 	}
 
-	/**
-	 * Plays the feedback for a path-dyeing action: the sound at the path's
-	 * end, and the dust trail along every link of the path.
-	 *
-	 * @param path the dyed connection keys, in start-to-end order
-	 */
 	public static void play(ServerLevel level, List<ConnectionKey> path, DyeColor dye) {
 		if (!effectsEnabled() || path.isEmpty())
 			return;
@@ -77,25 +41,10 @@ public final class DyeEffects {
 			trail(level, key.from(), key.to(), options);
 	}
 
-	/**
-	 * Whether dye feedback is enabled.
-	 *
-	 * <p>Guarded by {@code isLoaded()}: COMMON config values throw if read before
-	 * the config file has been parsed, and a dyeing action is the only caller.</p>
-	 */
 	private static boolean effectsEnabled() {
 		return CreateCCConfig.commonLoaded() && CreateCCConfig.DYE_EFFECTS.get();
 	}
 
-	/**
-	 * The dye's texture-diffuse colour packed as {@code 0xRRGGBB}.
-	 *
-	 * <p>1.20.1 has no scalar {@code DyeColor.getTextureDiffuseColor()} (that
-	 * arrived in 1.21) - only {@code getTextureDiffuseColors()} returning a
-	 * {@code float[3]} in 0..1, so the pack lives here and is shared by every
-	 * caller that needs an int (dust particles, the goggle trace readout's text
-	 * colour). See the port notes section 4.1.</p>
-	 */
 	public static int packedRgb(DyeColor dye) {
 		if (dye == null)
 			return 0x8A8A8A;
@@ -106,7 +55,6 @@ public final class DyeEffects {
 		return (r << 16) | (g << 8) | b;
 	}
 
-	/** Dust in the applied dye's own color (the wool/textured palette the renderer also uses). */
 	private static DustParticleOptions dustOptions(DyeColor dye) {
 		int rgb = packedRgb(dye);
 		Vector3f color = new Vector3f(
@@ -116,12 +64,6 @@ public final class DyeEffects {
 		return new DustParticleOptions(color, 1.0f);
 	}
 
-	/**
-	 * Dust trail along one link's polyline. The connection object lives on
-	 * the target panel's {@code targetedBy} map (source to this panel); when
-	 * it cannot be resolved (moved/removed in the same tick), the two ends
-	 * get a fallback puff so the action still has feedback.
-	 */
 	private static void trail(ServerLevel level, FactoryPanelPosition from, FactoryPanelPosition to,
 			DustParticleOptions options) {
 		FactoryPanelBehaviour behaviour = FactoryPanelBehaviour.at(level, to);
@@ -134,8 +76,6 @@ public final class DyeEffects {
 			return;
 		}
 
-		// Path-space anchor of the target panel's slot (same formula the hit
-		// tester uses), then one particle pair per segment midpoint
 		float xRotDeg = Mth.RAD_TO_DEG * FactoryPanelBlock.getXRot(state);
 		float yRotDeg = Mth.RAD_TO_DEG * FactoryPanelBlock.getYRot(state);
 		Vec3 origin = Vec3.atLowerCornerOf(behaviour.getPos());
@@ -151,12 +91,6 @@ public final class DyeEffects {
 		}
 	}
 
-	/**
-	 * Path space to world (block-local) coordinates: the exact inverse of the
-	 * transform {@link ConnectionHitTester} applies when picking, so the
-	 * trail lands on the polyline the renderer draws. Path space's y is about 0
-	 * on the plane the lines live on.
-	 */
 	private static Vec3 pathToWorld(double x, double z, float xRotDeg, float yRotDeg) {
 		Vec3 v = new Vec3(x, 0, z);
 		v = v.subtract(0.5, 0.5, 0.5);
@@ -166,7 +100,6 @@ public final class DyeEffects {
 		return v.add(0.5, 0.5, 0.5);
 	}
 
-	/** Spawns a small cloud of dust particles around one panel position. */
 	private static void puff(ServerLevel level, FactoryPanelPosition pos, DustParticleOptions options) {
 		Vec3 center = Vec3.atCenterOf(pos.pos());
 		level.sendParticles(options, center.x, center.y, center.z, 10, 0.35, 0.35, 0.35, 0.01);
