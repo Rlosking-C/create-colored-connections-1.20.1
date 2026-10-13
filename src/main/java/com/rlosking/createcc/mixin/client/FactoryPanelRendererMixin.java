@@ -139,12 +139,6 @@ public abstract class FactoryPanelRendererMixin {
 		// flashes white/orange to signal success or failure — a valid feedback
 		boolean flashing = !behaviour.redstonePowered && !behaviour.waitingForNetwork && glow > 0
 			&& !behaviour.satisfied;
-		// Idle: no demand (count==0), no config warning, not aborted, no
-		// flashing feedback, not waiting for network (while waiting, vanilla
-		// shows an amber line as a valid status cue, so it's not idle) —
-		// the gray line carries no information
-		boolean idle = behaviour.count == 0 && !behaviour.isMissingAddress() && !behaviour.redstonePowered
-			&& !flashing && !behaviour.waitingForNetwork;
 
 		// Vanilla yOffset layering copied verbatim: satisfied 1 / promised 2 /
 		// in progress 3, rising up to 5 while flashing
@@ -163,7 +157,7 @@ public abstract class FactoryPanelRendererMixin {
 		// other arm's core at a corner — the vanilla line keeps its full L and
 		// the border passes underneath it — so no segment has to be cropped,
 		// and every border segment samples the line texture at 1:1
-		yOffset += idle ? 0 : -0.1875f;
+		yOffset += -0.1875f;
 
 		// 1.20.1: no scalar getTextureDiffuseColor() - see DyeEffects.packedRgb
 		int dyeColor = 0xFF000000 | com.rlosking.createcc.DyeEffects.packedRgb(dye);
@@ -198,9 +192,9 @@ public abstract class FactoryPanelRendererMixin {
 			// itself, so it keeps the line's original width. Every segment is
 			// drawn across its whole path step — nothing is cropped anywhere —
 			// so the border samples the line texture at its original density
-			float band = idle ? 1 : 2;
+			float band = 2;
 
-			if (i == 0 && !idle) {
+			if (i == 0) {
 				// Arrow segment, dual underlay: shaft (2px) and barbs (4px)
 				// have different vanilla widths, so no single scale fits —
 				// A. line model at 2× covering the whole segment: shaft →4px,
@@ -227,10 +221,6 @@ public abstract class FactoryPanelRendererMixin {
 			}
 		}
 
-		// Idle: the vanilla gray line is replaced by the full dye line;
-		// active states proceed, the vanilla core stacks on the underlay
-		if (idle)
-			ci.cancel();
 	}
 
 	/**
