@@ -47,7 +47,6 @@ public class CreateCCConfigScreen extends Screen {
 
 		List<ForgeConfigSpec.BooleanValue> bools = List.of(
 			CreateCCConfig.DYE_CONSUMPTION,
-			CreateCCConfig.FIRST_HINT,
 			CreateCCConfig.FACTORY_CONTROLLER_DYEING,
 			CreateCCConfig.DYE_EFFECTS,
 			CreateCCConfig.HOVER_LIFT,

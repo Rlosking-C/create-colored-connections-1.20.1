@@ -13,7 +13,6 @@ public class CreateCCConfig {
 
 	public static final ForgeConfigSpec.BooleanValue FACTORY_CONTROLLER_DYEING;
 
-	public static final ForgeConfigSpec.BooleanValue FIRST_HINT;
 
 	public static final ForgeConfigSpec.BooleanValue DYE_EFFECTS;
 
@@ -35,10 +34,6 @@ public class CreateCCConfig {
 		COMMON_BUILDER.pop();
 
 		COMMON_BUILDER.push("feedback");
-		FIRST_HINT = COMMON_BUILDER
-			.comment("Show a one-time chat hint the first time a player",
-				"places a factory gauge (explains dyeing and path dyeing)")
-			.define("firstGaugeHint", true);
 		FACTORY_CONTROLLER_DYEING = COMMON_BUILDER
 			.comment("Dye ingredient wires inside the Factory Controller GUI:",
 				"pick a dye up onto the cursor and right-click the wire",
